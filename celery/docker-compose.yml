@@ -1,0 +1,45 @@
+version: '3'
+services:
+  web:
+    build: .
+    ports:
+      - "5083:5000"
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: mydatabase
+      FLASK_APP: app-w-celery.py
+    depends_on:
+      - db
+      - redis
+    command: flask run --host=0.0.0.0 --port=5000
+
+
+  db:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: mydatabase
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  redis:
+    image: "redis:alpine"
+
+  celery:
+    build: .
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: mydatabase
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    command: celery -A app-w-celery.celery worker --loglevel=info
+    depends_on:
+      - web
+      - redis
+
+volumes:
+  db_data:
